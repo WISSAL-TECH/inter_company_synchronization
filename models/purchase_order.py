@@ -48,10 +48,12 @@ class PurchaseOrder(models.Model):
         """ Confirm the purchase order and create sale order i
         n another company."""
         res = super(PurchaseOrder, self).button_confirm()
+        company_id = self.env['res.company'].search(
+            [('name', '=', self.partner_id.name)])
         transit_locations = self.env['stock.location'].search(
             [('active', '=', True), ('usage', '=', 'transit')])
         res_config_settings = self.env['res.config.settings'].search([])
         if (transit_locations and res_config_settings[-1].sale_purchase_sync and
-                not self.origin):
+                not self.origin) and company_id:
             self._create_sale_order()
         return res
