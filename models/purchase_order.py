@@ -30,18 +30,24 @@ class PurchaseOrder(models.Model):
         """Creating sale order values to vendor company."""
         company_id = self.env['res.company'].search(
             [('name', '=', self.partner_id.name)])
+
         sale_order_vals = {
             'partner_id': self.company_id.partner_id.id,
             'company_id': company_id.id,
             'client_order_ref': self.name,
-            'order_line': [(0, 0, {
-                'product_id': line.product_id.id,
-                'product_uom_qty': line.product_qty,
-                'price_unit': line.price_unit,
-                'tax_id': [(6, 0, line.taxes_id.ids)],
-                'price_subtotal': line.price_subtotal,
-            }) for line in self.order_line],
+            'order_line': [(0, 0,
+            ) ]
         }
+        for line in self.order_line:
+            tax = self.env['accounr.tax'].search(
+                [('display_name', '=', line.taxes_id.display_name), ('company_id.name', '=', self.partner_id.name)])
+            order = {'product_id': line.product_id.id,
+                     'product_uom_qty': line.product_qty,
+                     'price_unit': line.price_unit,
+                     'tax_id': [(6, 0, line.taxes_id.ids)],
+                     'price_subtotal': line.price_subtotal, }
+            sale_order_vals.order_line.append(order)
+
         return self.env['sale.order'].sudo().create(sale_order_vals)
 
     def button_confirm(self):
@@ -54,6 +60,6 @@ class PurchaseOrder(models.Model):
             [('active', '=', True), ('usage', '=', 'transit')])
         res_config_settings = self.env['res.config.settings'].search([])
         if (transit_locations and res_config_settings[-1].sale_purchase_sync and
-                not self.origin) and company_id:
+            not self.origin) and company_id:
             self._create_sale_order()
         return res
