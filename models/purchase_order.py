@@ -27,28 +27,31 @@ class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
 
     def _create_sale_order(self):
-        """Creating sale order values to vendor company."""
-        company_id = self.env['res.company'].search(
-            [('name', '=', self.partner_id.name)])
+        """Creating sale order values for the vendor company."""
+        company_id = self.env['res.company'].search([('name', '=', self.partner_id.name)], limit=1)
 
         sale_order_vals = {
             'partner_id': self.company_id.partner_id.id,
             'company_id': company_id.id,
             'client_order_ref': self.name,
-            'order_line': [(0, 0,
-            ) ]
+            'order_line': []
         }
-        for line in self.order_line:
-            tax = self.env['accounr.tax'].search(
-                [('display_name', '=', line.taxes_id.display_name), ('company_id.name', '=', self.partner_id.name)])
-            order = {'product_id': line.product_id.id,
-                     'product_uom_qty': line.product_qty,
-                     'price_unit': line.price_unit,
-                     'tax_id': [(6, 0, line.taxes_id.ids)],
-                     'price_subtotal': line.price_subtotal, }
-            sale_order_vals.order_line.append(order)
 
-        return self.env['sale.order'].sudo().create(sale_order_vals)
+        for line in self.order_line:
+            taxes = self.env['account.tax'].search(
+                [('display_name', '=', line.taxes_id.display_name), ('company_id.name', '=', self.partner_id.name)], limit=1)
+            order = {
+                'product_id': line.product_id.id,
+                'product_uom_qty': line.product_qty,
+                'price_unit': line.price_unit,
+                'tax_id': [(6, 0, taxes.ids)],
+                'price_subtotal': line.price_subtotal,
+            }
+            sale_order_vals['order_line'].append((0, 0, order))
+
+        # Create Sale Order
+        sale_order = self.env['sale.order'].sudo().create(sale_order_vals)
+        return sale_order
 
     def button_confirm(self):
         """ Confirm the purchase order and create sale order i
